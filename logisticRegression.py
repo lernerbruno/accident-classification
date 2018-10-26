@@ -4,13 +4,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 
-def getColumnsToRemove(train_data, test_data, feature):
+# Checks the different values that train_data and test_data have for each feature
+def getColumnsToAdd(train_data, test_data, feature):
     return set(train_data[feature].unique()).symmetric_difference(
         set(test_data[feature].unique()))
 
 
-def normalizeData(columnsToRemove, feature, test_feature):
-    for column in columnsToRemove:
+# This function adds columns that are missing both in test and train data
+def normalizeData(columnsToAdd, feature, test_feature):
+    for column in columnsToAdd:
         if column not in feature:
             feature[column] = pd.Series(
                 0, index=feature.index)
@@ -26,7 +28,7 @@ def transformFeatures(train_data, test_data):
     featuresToEncode = train_data[['CASE_STATE', 'SEX', 'PERSON_TYPE']]
     featuresToEncode = featuresToEncode.apply(lambda x: le.fit_transform(x))
 
-    # adding age
+    # Add to final features data the features that doesn't need to be one hot encoded
     age_features = train_data['AGE']
     age_features_test = test_data['AGE']
     data = pd.concat([age_features],
@@ -34,10 +36,11 @@ def transformFeatures(train_data, test_data):
     data_test = pd.concat([age_features_test],
                           axis=1)
 
+    # Now for every feature that need to be one hot encoded, we will do it and check if there
     for featureToEncode in featuresToEncode:
         onehot_feature = pd.get_dummies(train_data[featureToEncode])
         onehot_feature_test = pd.get_dummies(train_data[featureToEncode])
-        columnsToRemove = getColumnsToRemove(
+        columnsToAdd = getColumnsToAdd(
             train_data, test_data, featureToEncode)
         onehot_feature, onehot_feature_test = normalizeData(columnsToRemove, onehot_feature,
                                                             onehot_feature_test)
@@ -61,9 +64,11 @@ df_test.columns = ["CASE_STATE", "AGE", "SEX", "PERSON_TYPE", "SEATING_POSITION"
 # Get both label and features
 label = df["INJURY_SEVERITY"]
 features = df.drop(columns=['INJURY_SEVERITY'])
+
+# Do some transformation in data to fit it into the model
 training_features, test_features = transformFeatures(features, df_test)
-print test_features
-print training_features
+
+# Train the model with logistic regression with multiclass output
 clf = LogisticRegression(random_state=0, solver='lbfgs',
                          multi_class='ovr')
 clf.fit(training_features, label)
