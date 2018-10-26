@@ -1,49 +1,50 @@
 import pandas as pd
 import numpy as np
-from sklearn import linear_model
 from sklearn.linear_model import LogisticRegression
-from sklearn import preprocessing
-# from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 
 def getColumnsToRemove(train_data, test_data, feature):
-    if len(set(train_data[feature].unique())) > len(set(test_data[feature].unique())):
-        return set(train_data[feature].unique()).symmetric_difference(
-            set(test_data[feature].unique()))
-    else:
-        print "let me think"
+    return set(train_data[feature].unique()).symmetric_difference(
+        set(test_data[feature].unique()))
 
 
-def cleanFeatures(train_data, test_data):
+def normalizeData(columnsToRemove, feature, test_feature):
+    for column in columnsToRemove:
+        if column not in feature:
+            feature[column] = pd.Series(
+                0, index=feature.index)
+        if column not in test_feature:
+            test_feature[column] = pd.Series(
+                0, index=test_feature.index)
+    return feature, test_feature
+
+
+def transformFeatures(train_data, test_data):
     # Generating label Encoders for each feature
     le = LabelEncoder()
-    featuresToEncode = train_data[['SEX', 'PERSON_TYPE']]
+    featuresToEncode = train_data[['CASE_STATE', 'SEX', 'PERSON_TYPE']]
     featuresToEncode = featuresToEncode.apply(lambda x: le.fit_transform(x))
 
-    # encoding case_state feature
-    # encoding sex feature
-    sex_onehot_features = pd.get_dummies(train_data['SEX'])
-    # encoding person type feature
-    person_type_onehot_features = pd.get_dummies(train_data['PERSON_TYPE'])
-    columnsToRemove = getColumnsToRemove(train_data, test_data, 'PERSON_TYPE')
-    person_type_onehot_features = person_type_onehot_features.drop(
-        columns=columnsToRemove)
-    # encoding age
+    # adding age
     age_features = train_data['AGE']
-
-    data = pd.concat([sex_onehot_features, age_features],
+    age_features_test = test_data['AGE']
+    data = pd.concat([age_features],
                      axis=1)
-    print data
-    return data
+    data_test = pd.concat([age_features_test],
+                          axis=1)
 
-    # print pd.concat([data[['PERSON_TYPE', 'SEX']], person_type_onehot_features],
-    #                 axis=1).iloc[4:10]
-    # training_dataframe = pd.concat([data[['PERSON_TYPE', 'SEX']], person_type_onehot_features],
-    #                                axis=1)
-    # training_dataframe = pd.DataFrame(
-    #     {'person_type': list(person_type_onehot_features.values.flatten()), 'sex': list(sex_onehot_features.values.flatten())})
-    # print training_dataframe[['person_type', 'sex']]
+    for featureToEncode in featuresToEncode:
+        onehot_feature = pd.get_dummies(train_data[featureToEncode])
+        onehot_feature_test = pd.get_dummies(train_data[featureToEncode])
+        columnsToRemove = getColumnsToRemove(
+            train_data, test_data, featureToEncode)
+        onehot_feature, onehot_feature_test = normalizeData(columnsToRemove, onehot_feature,
+                                                            onehot_feature_test)
+        data = data.join(onehot_feature)
+        data_test = data_test.join(onehot_feature_test)
+
+    return data, data_test
 
 
 # Load training data and label it
@@ -60,13 +61,13 @@ df_test.columns = ["CASE_STATE", "AGE", "SEX", "PERSON_TYPE", "SEATING_POSITION"
 # Get both label and features
 label = df["INJURY_SEVERITY"]
 features = df.drop(columns=['INJURY_SEVERITY'])
-clean_features = cleanFeatures(features, df_test)
+training_features, test_features = transformFeatures(features, df_test)
+print test_features
+print training_features
+clf = LogisticRegression(random_state=0, solver='lbfgs',
+                         multi_class='ovr')
+clf.fit(training_features, label)
 
-# clf = LogisticRegression(random_state=0, solver='lbfgs',
-#                          multi_class='ovr')
-clf = LogisticRegression()
-# clf.fit(new_features, label)
 
-
-# new_features = cleanFeatures(df_test)
-# prediction = clf.predict(new_features).tolist()
+prediction = clf.predict(test_features).tolist()
+# print prediction
