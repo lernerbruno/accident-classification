@@ -1,10 +1,11 @@
+# ITC Challenge - Bruno Lerner
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-# from sklearn.preprocessing import OneHotEncoder
-
 
 # Checks the different values that train_data and test_data have for each feature
+
+
 def getColumnsToAdd(train_data, test_data, feature):
     return set(train_data[feature].unique()).symmetric_difference(
         set(test_data[feature].unique()))
@@ -48,8 +49,13 @@ def transformFeatures(train_data, test_data):
 
     # Now for every feature that need to be one hot encoded, we will do it and check if there
     for featureToEncode in featuresToEncode:
+        # Here I generate a one hot encode for each nominal feature, which is basically transforming
+        # each column in a bitmap
         onehot_feature = pd.get_dummies(train_data[featureToEncode])
         onehot_feature_test = pd.get_dummies(train_data[featureToEncode])
+
+        # In the train_data there was some values in the feature domain that weren't in the test_data and vice-versa
+        # So I fixed that by creating the missing column in the dataset with zero values
         columnsToAdd = getColumnsToAdd(train_data, test_data, featureToEncode)
         onehot_feature, onehot_feature_test = normalizeData(columnsToAdd, onehot_feature,
                                                             onehot_feature_test)
